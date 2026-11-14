@@ -59,3 +59,9 @@ class ItemNotFoundError(AppError):
 
     def __init__(self, item_id: int):
         super().__init__(f"Запись с id={item_id} не найдена")
+
+class NoQuotesInCategoryError(AppError):
+    """В выбранной тематике нет записей."""
+
+    def __init__(self, category: str):
+        super().__init__(f"В тематике «{category}» пока нет записей")

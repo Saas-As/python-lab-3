@@ -7,9 +7,9 @@
 from collections import Counter
 from typing import Iterable
 
-from app.exceptions import DuplicateItemError, ItemNotFoundError
+from app.exceptions import DuplicateItemError, ItemNotFoundError, NoQuotesInCategoryError
 from app.models import Quote
-
+import random
 
 class QuoteRepository:
     """Хранилище цитат и фактов в памяти."""
@@ -89,3 +89,14 @@ class QuoteRepository:
             except DuplicateItemError:
                 continue
         return added
+
+    def get_random(self, category: str | None = None, kind: str | None = None) -> Quote:
+        """Возвращает случайную запись. Фильтры опциональны."""
+        pool = self._items
+        if category:
+            pool = [q for q in pool if q.category == category]
+        if kind:
+            pool = [q for q in pool if q.kind == kind]
+        if not pool:
+            raise NoQuotesInCategoryError(category or "все")
+        return random.choice(pool)
