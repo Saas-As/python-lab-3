@@ -16,16 +16,18 @@ class QuoteRepository:
 
     def __init__(self, db_path: str | Path = DB_PATH) -> None:
         self.db_path = str(db_path)
+        # Сохраняем постоянное соединение. При ':memory:' оно будет жить,
+        # пока жива эта переменная.
+        self._conn = sqlite3.connect(self.db_path, check_same_thread=False)
+        self._conn.row_factory = sqlite3.Row
         self._init_db()
 
     def _get_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row  # позволяет обращаться к колонкам по имени
-        return conn
+        return self._conn
 
     def _init_db(self) -> None:
         """Создает таблицу, если ее еще нет."""
-        with self._get_connection() as conn:
+        with self._conn as conn:
             conn.execute("""
                 CREATE TABLE IF NOT EXISTS quotes (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -136,3 +138,8 @@ class QuoteRepository:
                 from app.exceptions import NoQuotesInCategoryError
                 raise NoQuotesInCategoryError(category or "выбранным фильтрам")
             return Quote.from_dict(dict(row))
+        
+    def __del__(self):
+        """Закрываем соединение при уничтожении объекта."""
+        if hasattr(self, '_conn') and self._conn:
+            self._conn.close()
