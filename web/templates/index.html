@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Генератор цитат и фактов</title>
+    <!-- Подключаем Chart.js для графика -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 1200px; margin: 2rem auto; padding: 0 1rem; background: #f5f5f5; color: #333; }
+        h1 { color: #333; text-align: center; }
+        .layout { display: flex; gap: 1.5rem; align-items: flex-start; }
+        .main-col { flex: 2; min-width: 0; }
+        .side-col { flex: 1; min-width: 300px; }
+        .card { background: white; border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        label { display: block; font-size: .9rem; color: #555; margin-bottom: .2rem; }
+        input, select { width: 100%; padding: .5rem; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; margin-bottom: .8rem; font-family: inherit; }
+        button { background: #4CAF50; color: white; border: none; padding: .6rem 1.2rem; border-radius: 4px; cursor: pointer; font-size: .95rem; font-weight: 500; }
+        button:hover { background: #45a049; }
+        button.danger { background: #e53935; padding: .4rem .8rem; font-size: .85rem; }
+        button.danger:hover { background: #c62828; }
+        table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+        th, td { padding: .7rem 1rem; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #fafafa; font-weight: 600; color: #555; font-size: .85rem; text-transform: uppercase; }
+        tr:hover { background: #f9f9f9; }
+        .badge { display: inline-block; padding: .15rem .5rem; border-radius: 12px; font-size: .8rem; background: #e3f2fd; color: #1565c0; }
+        #gen-result { font-size: 1.1rem; padding: 1rem; background: #f0f7ff; border-left: 4px solid #2196F3; border-radius: 4px; margin-top: 1rem; min-height: 2rem; font-style: italic; }
+        .error { color: #e53935; font-size: .9rem; margin-top: .5rem; }
+        
+        /* Лог активности */
+        .log-box { background: #1e1e1e; color: #d4d4d4; font-family: monospace; font-size: .85rem; padding: 1rem; border-radius: 8px; height: 250px; overflow-y: auto; margin-top: 1rem; }
+        .log-entry { margin-bottom: .3rem; }
+        .log-time { color: #858585; margin-right: .5rem; }
+        
+        /* График */
+        .chart-container { position: relative; height: 300px; width: 100%; margin-top: 1rem; }
+    </style>
+</head>
+<body>
+
+<h1>Генератор цитат и фактов</h1>
+
+<div class="layout">
+    <!-- Левая колонка: Генератор, Добавление, Таблица -->
+    <div class="main-col">
+        
+        <!-- Генератор -->
+        <div class="card">
+            <h2 style="margin-top:0">Сгенерировать</h2>
+            <div style="display:flex; gap:1rem; align-items:end; flex-wrap:wrap;">
+                <div style="flex:1; min-width:120px;">
+                    <label>Тематика</label>
+                    <select id="gen-category">
+                        <option value="">Любая</option>
+                        {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div style="flex:1; min-width:120px;">
+                    <label>Тип</label>
+                    <select id="gen-kind">
+                        <option value="">Любой</option>
+                        {% for kind in kinds %}<option value="{{ kind }}">{{ kind }}</option>{% endfor %}
+                    </select>
+                </div>
+                <button onclick="generate()">Сгенерировать</button>
+            </div>
+            <div id="gen-result">Нажмите «Сгенерировать»…</div>
+        </div>
+
+        <!-- Добавление -->
+        <div class="card">
+            <h2 style="margin-top:0">Добавить запись</h2>
+            <div class="grid">
+                <div>
+                    <label>Текст</label>
+                    <input id="add-text" placeholder="Текст цитаты или факта…" maxlength="500">
+                </div>
+                <div>
+                    <label>Источник</label>
+                    <input id="add-source" placeholder="Автор / источник" maxlength="100">
+                </div>
+            </div>
+            <div class="grid">
+                <div>
+                    <label>Тематика</label>
+                    <select id="add-category">
+                        {% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div>
+                    <label>Тип</label>
+                    <select id="add-kind">
+                        {% for kind in kinds %}<option value="{{ kind }}">{{ kind }}</option>{% endfor %}
+                    </select>
+                </div>
+            </div>
+            <button onclick="addItem()">Добавить</button>
+            <div class="error" id="add-error"></div>
+        </div>
+
+        <!-- Таблица -->
+        <table id="quotes-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Текст</th>
+                    <th>Тематика</th>
+                    <th>Тип</th>
+                    <th>Источник</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for q in items %}
+                <tr>
+                    <td>{{ q.id }}</td>
+                    <td>{{ q.text[:80] }}{% if q.text|length > 80 %}…{% endif %}</td>
+                    <td><span class="badge">{{ q.category }}</span></td>
+                    <td>{{ q.kind }}</td>
+                    <td>{{ q.source or '—' }}</td>
+                    <td><button class="danger" onclick="deleteItem({{ q.id }})">Удалить</button></td>
+                </tr>
+                {% else %}
+                <tr><td colspan="6" style="text-align:center; color:#999;">Нет записей</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Правая колонка: График и Лог -->
+    <div class="side-col">
+        <div class="card">
+            <h2 style="margin-top:0">Активность по тематикам</h2>
+            <div class="chart-container">
+                <canvas id="activity-chart"></canvas>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-top:0">Лог активности</h2>
+            <div class="log-box" id="log-box">
+                <div class="log-entry"><span class="log-time">[Система]</span> Загружено записей: {{ total }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// ================= ЛОГИКА ЛОГА =================
+function logMessage(msg) {
+    const box = document.getElementById('log-box');
+    const now = new Date();
+    const time = now.toLocaleTimeString('ru-RU', { hour12: false });
+    
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `<span class="log-time">[${time}]</span> ${msg}`;
+    
+    box.appendChild(entry);
+    box.scrollTop = box.scrollHeight; // Автоскролл вниз
+}
+
+// ================= ЛОГИКА ГРАФИКА =================
+const chartLabels = JSON.parse('{{ chart_labels | tojson | safe }}');
+const chartValues = JSON.parse('{{ chart_values | tojson | safe }}');
+
+const ctx = document.getElementById('activity-chart').getContext('2d');
+const chart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+        labels: chartLabels,
+        datasets: [{
+            label: 'Количество',
+            data: chartValues,
+            backgroundColor: '#2196F3',
+            borderRadius: 4
+        }]
+    },
+    options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 } }
+        }
+    }
+});
+
+// ================= ГЕНЕРАТОР =================
+async function generate() {
+    const category = document.getElementById('gen-category').value;
+    const kind = document.getElementById('gen-kind').value;
+    const params = new URLSearchParams();
+    if (category) params.set('category', category);
+    if (kind) params.set('kind', kind);
+    
+    const res = await fetch('/api/random?' + params);
+    const result = document.getElementById('gen-result');
+    
+    if (!res.ok) {
+        const err = await res.json();
+        result.textContent = '⚠ ' + (err.detail || 'Ошибка');
+        result.style.color = '#e53935';
+        logMessage(`Ошибка генерации: ${err.detail}`);
+        return;
+    }
+    const data = await res.json();
+    result.textContent = `«${data.text}» ${data.source ? '— ' + data.source : ''}`;
+    result.style.color = '#333';
+    logMessage(`Сгенерировано: [${data.kind}] «${data.text.substring(0, 30)}...» (${data.category})`);
+}
+
+// ================= ДОБАВЛЕНИЕ =================
+async function addItem() {
+    const text = document.getElementById('add-text').value.trim();
+    const errEl = document.getElementById('add-error');
+    if (!text) { 
+        errEl.textContent = 'Текст не может быть пустым'; 
+        return; 
+    }
+    
+    const payload = {
+        text: text,
+        category: document.getElementById('add-category').value,
+        kind: document.getElementById('add-kind').value,
+        source: document.getElementById('add-source').value.trim(),
+    };
+    
+    const res = await fetch('/api/quotes', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(payload),
+    });
+    
+    if (!res.ok) {
+        const err = await res.json();
+        errEl.textContent = err.detail || 'Ошибка добавления';
+        logMessage(`Ошибка добавления: ${err.detail}`);
+        return;
+    }
+    
+    logMessage(`Добавлено: [${payload.kind}] «${text.substring(0, 30)}...» (${payload.category})`);
+    location.reload();
+}
+
+// ================= УДАЛЕНИЕ =================
+async function deleteItem(id) {
+    if (!confirm('Удалить запись?')) return;
+    
+    const res = await fetch('/api/quotes/' + id, { method: 'DELETE' });
+    if (res.ok) {
+        logMessage(`Удалена запись ID: ${id}`);
+        location.reload();
+    } else {
+        alert('Ошибка удаления');
+        logMessage(`Ошибка удаления ID: ${id}`);
+    }
+}
+</script>
+</body>
+</html>
